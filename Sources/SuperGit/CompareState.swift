@@ -12,6 +12,8 @@ final class CompareState {
     var commits: [CommitInfo] = []
     /// Vacío significa "toda la rama".
     var selectedCommits: Set<String> = []
+    /// Compara hasta el árbol de trabajo en vez de hasta el último commit.
+    var includeWorkingTree = false
     var files: [DiffFileSummary] = []
     var layout: DiffLayout = .split
 
@@ -28,7 +30,9 @@ final class CompareState {
 
     var range: DiffRange? {
         guard let base else { return nil }
-        guard !selectedCommits.isEmpty else { return .wholeBranch(base: base) }
+        guard !selectedCommits.isEmpty else {
+            return includeWorkingTree ? .workingTree(base: base) : .wholeBranch(base: base)
+        }
 
         let selected = commits.filter { selectedCommits.contains($0.sha) }
         guard let newest = selected.first, let oldest = selected.last else {
@@ -60,7 +64,7 @@ final class CompareState {
 
     // MARK: - Carga
 
-    func load(url: URL, currentBranch: String?) async {
+    func load(url: URL, currentBranch: String?, localChanges: Int) async {
         isLoading = true
         error = nil
         defer { isLoading = false; hasLoaded = true }
@@ -70,6 +74,13 @@ final class CompareState {
             base = GitCompare.suggestedBase(from: branches, current: currentBranch)
         }
         await reload(url: url)
+
+        // Si la rama no tiene commits propios pero sí trabajo sin commitear,
+        // mostrar "sin diferencias" sería exacto y a la vez inútil.
+        if commits.isEmpty && localChanges > 0 && !includeWorkingTree {
+            includeWorkingTree = true
+            await reloadFiles(url: url)
+        }
     }
 
     /// Vuelve a pedir commits y archivos con la base y la selección actuales.
@@ -140,6 +151,15 @@ final class CompareState {
     func selectWholeBranch(url: URL) async {
         guard !selectedCommits.isEmpty else { return }
         selectedCommits.removeAll()
+        await reloadFiles(url: url)
+    }
+
+    func setIncludeWorkingTree(_ include: Bool, url: URL) async {
+        guard include != includeWorkingTree else { return }
+        includeWorkingTree = include
+        // Con el árbol de trabajo la comparación es contra la base completa,
+        // no contra un tramo de commits.
+        if include { selectedCommits.removeAll() }
         await reloadFiles(url: url)
     }
 

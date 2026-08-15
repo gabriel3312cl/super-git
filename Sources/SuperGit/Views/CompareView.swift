@@ -11,6 +11,7 @@ struct CompareView: View {
         switch state.range {
         case .wholeBranch(let base):        return "b:\(base)"
         case .commitSpan(let old, let new): return "c:\(old)..\(new)"
+        case .workingTree(let base):        return "w:\(base)"
         case nil:                           return "none"
         }
     }
@@ -33,7 +34,11 @@ struct CompareView: View {
         }
         .task {
             guard !state.hasLoaded else { return }
-            await state.load(url: repo.url, currentBranch: repo.status?.branch)
+            await state.load(
+                url: repo.url,
+                currentBranch: repo.status?.branch,
+                localChanges: repo.status?.totalChanges ?? 0
+            )
         }
     }
 
@@ -81,6 +86,31 @@ struct CompareView: View {
                 }
                 .help("Volver a calcular la comparación")
                 .disabled(state.isLoading)
+            }
+
+            HStack(spacing: 8) {
+                Toggle(isOn: Binding(
+                    get: { state.includeWorkingTree },
+                    set: { value in
+                        Task { await state.setIncludeWorkingTree(value, url: repo.url) }
+                    }
+                )) {
+                    Text("Incluir cambios sin commitear")
+                }
+                .toggleStyle(.checkbox)
+                .disabled(!state.selectedCommits.isEmpty)
+                .help(
+                    state.selectedCommits.isEmpty
+                    ? "Compara la base contra el árbol de trabajo, no contra el último commit"
+                    : "Solo disponible al comparar toda la rama"
+                )
+
+                if state.includeWorkingTree {
+                    Text("mostrando también lo que aún no está commiteado")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
             }
 
             if state.selectionHasGaps {
@@ -210,10 +240,14 @@ struct CompareView: View {
                     .foregroundStyle(state.selectedCommits.isEmpty ? Color.accentColor : .secondary)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Toda la rama").fontWeight(.medium)
-                    Text("Todo lo que \(repo.status?.branchLabel ?? "HEAD") trae sobre \(state.base ?? "la base")")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                    Text(
+                        state.includeWorkingTree
+                        ? "Todo lo que \(repo.status?.branchLabel ?? "HEAD") trae sobre \(state.base ?? "la base"), commiteado o no"
+                        : "Todo lo que \(repo.status?.branchLabel ?? "HEAD") trae sobre \(state.base ?? "la base")"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
                 }
                 Spacer(minLength: 0)
             }
@@ -266,6 +300,21 @@ struct CompareView: View {
                 systemImage: "arrow.triangle.pull",
                 description: Text("Este repositorio solo tiene una rama.")
             )
+        } else if !state.includeWorkingTree && (repo.status?.totalChanges ?? 0) > 0 {
+            ContentUnavailableView {
+                Label("Nada commiteado todavía", systemImage: "tray")
+            } description: {
+                Text(
+                    "\(repo.status?.branchLabel ?? "HEAD") no tiene commits propios sobre "
+                    + "\(state.base ?? ""), pero hay \(repo.status?.totalChanges ?? 0) "
+                    + "cambios sin commitear."
+                )
+            } actions: {
+                Button("Incluir cambios sin commitear") {
+                    Task { await state.setIncludeWorkingTree(true, url: repo.url) }
+                }
+                .buttonStyle(.borderedProminent)
+            }
         } else {
             ContentUnavailableView(
                 "Sin diferencias",
@@ -342,6 +391,13 @@ private struct FileRow: View {
                     }
                 }
                 Spacer(minLength: 4)
+                if file.isUntracked {
+                    Text("nuevo")
+                        .font(.caption2)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Color.green.opacity(0.18), in: Capsule())
+                }
                 DiffCounts(additions: file.additions, deletions: file.deletions)
             }
             .contentShape(Rectangle())

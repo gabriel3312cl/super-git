@@ -41,9 +41,12 @@ struct DiffFileSummary: Identifiable, Hashable, Sendable {
         case "R": return "Renombrado"
         case "C": return "Copiado"
         case "T": return "Tipo cambiado"
+        case "?": return "Sin seguimiento"
         default:  return "Modificado"
         }
     }
+
+    var isUntracked: Bool { status == "?" }
 }
 
 enum DiffLineKind: Sendable {
@@ -110,4 +113,7 @@ enum DiffRange: Equatable, Sendable {
     case wholeBranch(base: String)
     /// Un tramo de commits, del más viejo al más nuevo.
     case commitSpan(oldest: String, newest: String)
+    /// Desde la base hasta el árbol de trabajo: incluye lo que hay commiteado
+    /// en la rama y además lo que todavía no se ha commiteado.
+    case workingTree(base: String)
 }

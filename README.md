@@ -71,6 +71,10 @@ La primera vez macOS pedirá permiso para acceder a `~/Documents`.
 - Diff de toda la rama (`base...HEAD`), de un commit suelto o de un tramo de
   commits. Si los commits elegidos no son consecutivos, avisa que el rango
   arrastra también los que quedan en medio.
+- «Incluir cambios sin commitear» compara la base contra el árbol de trabajo,
+  no contra el último commit, y suma los archivos sin seguimiento (que `git
+  diff` no ve). Se activa sola cuando la rama no tiene commits propios pero sí
+  trabajo sin commitear, que si no aparecería como «sin diferencias».
 - Vista lado a lado o unificada. El ancho se calcula en caracteres, así que
   las columnas quedan alineadas y las líneas largas se ven con scroll
   horizontal en vez de partirse.
