@@ -14,6 +14,23 @@ struct ContentView: View {
             if let repo = model.selectedRepo {
                 RepoDetailView(repo: repo)
                     .id(repo.id)
+            } else if model.foundNothing {
+                ContentUnavailableView {
+                    Label("No se encontró ningún repositorio", systemImage: "folder.badge.questionmark")
+                } description: {
+                    Text(
+                        """
+                        Se buscó en \(model.config.roots.joined(separator: ", ")).
+
+                        Si acabas de instalar la app, puede que macOS todavía no le \
+                        haya dado acceso a esa carpeta: revísalo en Ajustes del Sistema › \
+                        Privacidad y seguridad › Archivos y carpetas.
+                        """
+                    )
+                } actions: {
+                    Button("Elegir otra carpeta…") { model.showSettings = true }
+                    Button("Buscar de nuevo") { Task { await model.rescan() } }
+                }
             } else {
                 ContentUnavailableView(
                     "Ningún repositorio seleccionado",

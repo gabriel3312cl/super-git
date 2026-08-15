@@ -9,8 +9,13 @@ final class AppModel {
     var selectedRepoID: String?
     var config: AppConfig = .load()
     var isScanning = false
+    var hasScanned = false
     var searchText = ""
     var showSettings = false
+
+    /// Se escaneó y no apareció nada: normalmente es que macOS todavía no dio
+    /// permiso de acceso a la carpeta.
+    var foundNothing: Bool { hasScanned && !isScanning && repos.isEmpty }
 
     var selectedRepo: Repo? {
         guard let selectedRepoID else { return nil }
@@ -40,7 +45,7 @@ final class AppModel {
 
     func rescan() async {
         isScanning = true
-        defer { isScanning = false }
+        defer { isScanning = false; hasScanned = true }
 
         let urls = await RepoScanner.scan(roots: config.rootURLs, maxDepth: config.maxDepth)
         let existing = Dictionary(uniqueKeysWithValues: repos.map { ($0.path, $0) })
