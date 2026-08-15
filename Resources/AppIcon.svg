@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"    stop-color="#1d4ed8"/>
+      <stop offset="0.45" stop-color="#4f46e5"/>
+      <stop offset="1"    stop-color="#9333ea"/>
+    </linearGradient>
+
+    <!-- Manchas de color desenfocadas: dan profundidad al fondo -->
+    <filter id="blobBlur" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="72"/>
+    </filter>
+    <!-- Desenfoque de lo que queda "detrás" del vidrio -->
+    <filter id="backdrop" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="40"/>
+    </filter>
+
+    <g id="scene">
+      <rect width="1024" height="1024" fill="url(#base)"/>
+      <g filter="url(#blobBlur)">
+        <circle cx="150" cy="150" r="300" fill="#22d3ee" opacity="0.75"/>
+        <circle cx="900" cy="120" r="230" fill="#818cf8" opacity="0.8"/>
+        <circle cx="880" cy="900" r="330" fill="#f472b6" opacity="0.7"/>
+        <circle cx="180" cy="920" r="260" fill="#38bdf8" opacity="0.6"/>
+      </g>
+    </g>
+
+    <clipPath id="squircle"><rect width="1024" height="1024" rx="229"/></clipPath>
+    <clipPath id="clipBack"><rect x="286" y="206" width="452" height="120" rx="44"/></clipPath>
+    <clipPath id="clipMid"><rect x="242" y="340" width="540" height="132" rx="48"/></clipPath>
+    <clipPath id="clipFront"><rect x="190" y="486" width="644" height="322" rx="68"/></clipPath>
+
+    <!-- Brillo especular: fuerte arriba, se apaga hacia abajo -->
+    <linearGradient id="rim" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0"   stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="1"   stop-color="#ffffff" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="pane" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.16"/>
+    </linearGradient>
+    <!-- La tarjeta de adelante es más opaca: marca la jerarquía del stack -->
+    <linearGradient id="paneFront" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.32"/>
+    </linearGradient>
+    <linearGradient id="topSheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.30"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="outerSheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="0.40" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <g clip-path="url(#squircle)">
+    <use xlink:href="#scene" href="#scene"/>
+
+    <!-- Tarjeta trasera -->
+    <g clip-path="url(#clipBack)">
+      <use xlink:href="#scene" href="#scene" filter="url(#backdrop)"/>
+      <rect x="286" y="206" width="452" height="120" fill="url(#pane)"/>
+    </g>
+    <rect x="286" y="206" width="452" height="120" rx="44"
+          fill="none" stroke="url(#rim)" stroke-width="3" opacity="0.75"/>
+
+    <!-- Tarjeta media -->
+    <g clip-path="url(#clipMid)">
+      <use xlink:href="#scene" href="#scene" filter="url(#backdrop)"/>
+      <rect x="242" y="340" width="540" height="132" fill="url(#pane)"/>
+    </g>
+    <rect x="242" y="340" width="540" height="132" rx="48"
+          fill="none" stroke="url(#rim)" stroke-width="3.5" opacity="0.85"/>
+
+    <!-- Tarjeta delantera -->
+    <g clip-path="url(#clipFront)">
+      <use xlink:href="#scene" href="#scene" filter="url(#backdrop)"/>
+      <rect x="190" y="486" width="644" height="322" fill="url(#paneFront)"/>
+      <rect x="190" y="486" width="644" height="180" fill="url(#topSheen)"/>
+    </g>
+    <rect x="190" y="486" width="644" height="322" rx="68"
+          fill="none" stroke="url(#rim)" stroke-width="4.5"/>
+
+    <!-- Mini grafo dentro de la tarjeta delantera -->
+    <g fill="none" stroke="#ffffff" stroke-width="36" stroke-linecap="round">
+      <path d="M292 566 V 730"/>
+      <path d="M292 620 C 292 692, 436 620, 436 692"/>
+    </g>
+    <circle cx="292" cy="566" r="46" fill="#ffffff"/>
+    <circle cx="292" cy="730" r="46" fill="#ffffff"/>
+    <circle cx="436" cy="692" r="40" fill="#fb923c"/>
+
+    <rect x="530" y="552" width="196" height="32" rx="16" fill="#ffffff" opacity="0.85"/>
+    <rect x="530" y="632" width="140" height="32" rx="16" fill="#ffffff" opacity="0.68"/>
+    <rect x="530" y="712" width="172" height="32" rx="16" fill="#ffffff" opacity="0.68"/>
+
+    <!-- Brillo general del cristal exterior -->
+    <rect width="1024" height="1024" fill="url(#outerSheen)"/>
+  </g>
+</svg>

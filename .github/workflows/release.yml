@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag de la release (ej. v1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Compilar y publicar
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolver el tag
+        id: meta
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Compilar universal (arm64 + x86_64)
+        env:
+          UNIVERSAL: '1'
+        run: ./build.sh
+
+      - name: Sellar la versión en el Info.plist
+        run: |
+          PLIST=dist/SuperGit.app/Contents/Info.plist
+          /usr/libexec/PlistBuddy -c \
+            "Set :CFBundleShortVersionString ${{ steps.meta.outputs.version }}" "$PLIST"
+          /usr/libexec/PlistBuddy -c \
+            "Set :CFBundleVersion ${{ github.run_number }}" "$PLIST"
+          # El plist cambió, así que hay que volver a firmar.
+          codesign --force --deep --sign - dist/SuperGit.app
+
+      - name: Verificar arquitecturas
+        run: lipo -info dist/SuperGit.app/Contents/MacOS/SuperGit
+
+      - name: Empaquetar
+        run: |
+          ditto -c -k --keepParent dist/SuperGit.app \
+            "SuperGit-${{ steps.meta.outputs.tag }}-macos-universal.zip"
+
+      - name: Publicar la release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.meta.outputs.tag }}" \
+            "SuperGit-${{ steps.meta.outputs.tag }}-macos-universal.zip" \
+            --title "Super Git ${{ steps.meta.outputs.tag }}" \
+            --notes-file - <<'NOTAS'
+          ## Instalación
+
+          1. Descarga el ZIP y descomprímelo.
+          2. Mueve `SuperGit.app` a `/Applications`.
+          3. La app está firmada ad-hoc, no notarizada por Apple, así que la
+             primera vez macOS la bloquea. Quita la cuarentena:
+
+          ```bash
+          xattr -dr com.apple.quarantine /Applications/SuperGit.app
+          ```
+
+          Requiere macOS 14 o superior. Binario universal (Apple Silicon e Intel).
+          NOTAS

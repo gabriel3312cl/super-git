@@ -1,0 +1,7 @@
+.build/
+dist/
+Resources/AppIcon.iconset/
+.DS_Store
+*.xcodeproj
+.swiftpm/
+Package.resolved

@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Compilar (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versión de Swift
+        run: swift --version
+
+      - name: Compilar en debug
+        run: swift build -c debug
+
+      - name: Armar el .app
+        run: ./build.sh
+
+      - name: Verificar el bundle
+        run: |
+          test -x dist/SuperGit.app/Contents/MacOS/SuperGit
+          test -f dist/SuperGit.app/Contents/Resources/AppIcon.icns
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" \
+            dist/SuperGit.app/Contents/Info.plist
+          codesign -dv dist/SuperGit.app 2>&1 | head -3
