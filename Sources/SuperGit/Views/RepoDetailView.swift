@@ -16,7 +16,51 @@ struct RepoDetailView: View {
             header
             Divider()
 
-            ScrollView {
+            switch repo.mode {
+            case .compare:
+                CompareView(repo: repo)
+            case .changes:
+                changesPane
+            }
+        }
+        .overlay(alignment: .top) { busyIndicator }
+        .toolbar { toolbarContent }
+        .confirmationDialog(
+            "¿Descartar cambios?",
+            isPresented: $showDiscardConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Descartar", role: .destructive) {
+                let targets = discardTargets
+                Task { await model.discard(targets, in: repo) }
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text(discardMessage)
+        }
+    }
+
+    @ViewBuilder
+    private var busyIndicator: some View {
+        if repo.isBusy {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(repo.busyLabel ?? "Trabajando…")
+                    .font(.caption)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.regularMaterial, in: Capsule())
+            .padding(.top, 8)
+        }
+    }
+
+    // MARK: - Cambios locales
+
+    private var changesPane: some View {
+        @Bindable var repo = repo
+
+        return ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
                     commitBox
 
@@ -92,34 +136,6 @@ struct RepoDetailView: View {
                     }
                 }
                 .padding(.bottom, 24)
-            }
-        }
-        .overlay(alignment: .top) {
-            if repo.isBusy {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text(repo.busyLabel ?? "Trabajando…")
-                        .font(.caption)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(.regularMaterial, in: Capsule())
-                .padding(.top, 8)
-            }
-        }
-        .toolbar { toolbarContent }
-        .confirmationDialog(
-            "¿Descartar cambios?",
-            isPresented: $showDiscardConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Descartar", role: .destructive) {
-                let targets = discardTargets
-                Task { await model.discard(targets, in: repo) }
-            }
-            Button("Cancelar", role: .cancel) {}
-        } message: {
-            Text(discardMessage)
         }
     }
 
@@ -169,9 +185,25 @@ struct RepoDetailView: View {
                     pill("arrow.up", "\(status.ahead)", .purple, "Commits por subir")
                 }
             }
+
+            modePicker
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    private var modePicker: some View {
+        @Bindable var repo = repo
+
+        return Picker("Vista", selection: $repo.mode) {
+            ForEach(DetailMode.allCases) { mode in
+                Label(mode.rawValue, systemImage: mode.symbol).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .fixedSize()
+        .labelsHidden()
+        .help("Cambios locales sin commitear, o revisión de la rama completa")
     }
 
     private func pill(_ icon: String, _ text: String, _ color: Color, _ help: String) -> some View {

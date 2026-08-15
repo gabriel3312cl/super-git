@@ -1,6 +1,19 @@
 import Foundation
 import Observation
 
+enum DetailMode: String, CaseIterable, Identifiable {
+    case changes = "Cambios"
+    case compare = "Comparar"
+    var id: String { rawValue }
+
+    var symbol: String {
+        switch self {
+        case .changes: return "pencil.and.list.clipboard"
+        case .compare: return "arrow.triangle.pull"
+        }
+    }
+}
+
 /// Un repositorio descubierto, con su estado y el borrador de commit.
 @MainActor
 @Observable
@@ -18,6 +31,11 @@ final class Repo: Identifiable {
     var busyLabel: String?
     var errorMessage: String?
     var lastOperationOutput: String?
+
+    var mode: DetailMode = .changes
+    /// Se conserva por repo para no perder la base ni la selección de commits
+    /// al cambiar de repositorio y volver.
+    let compare = CompareState()
 
     nonisolated var id: String { path }
 

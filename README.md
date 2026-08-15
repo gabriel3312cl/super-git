@@ -62,6 +62,23 @@ La primera vez macOS pedirá permiso para acceder a `~/Documents`.
 - Fetch, Pull (fast-forward / rebase / merge) y Push. Si el branch no tiene
   upstream, el botón cambia a "Publicar branch" y hace `push -u origin <branch>`.
 
+**Revisión de rama (pestaña «Comparar»)**
+- Vista tipo pull request: lista de archivos a la izquierda y el diff a la
+  derecha, con números de línea de ambos lados.
+- Selector de base: cualquier rama local o remota. Por defecto elige
+  `origin/main`, `main`, `master` o `develop`, la primera que exista y no sea
+  la rama actual.
+- Diff de toda la rama (`base...HEAD`), de un commit suelto o de un tramo de
+  commits. Si los commits elegidos no son consecutivos, avisa que el rango
+  arrastra también los que quedan en medio.
+- Vista lado a lado o unificada. El ancho se calcula en caracteres, así que
+  las columnas quedan alineadas y las líneas largas se ven con scroll
+  horizontal en vez de partirse.
+- Los signos `+` y `−` se escriben en cada línea: el color no es la única
+  señal. Cada fila tiene su etiqueta para VoiceOver.
+- Los archivos con más de 500 líneas de diff se recortan (con botón para ver
+  el resto) y los de más de 1500 arrancan plegados.
+
 **Refresco**
 - Automático cada 20 s (configurable) y al volver a la app.
 - `⌘R` refresca el repo activo, `⇧⌘R` vuelve a escanear las carpetas.
@@ -97,11 +114,15 @@ Sources/SuperGit/
   AppModel.swift           estado global y operaciones
   Config/AppConfig.swift   configuración persistida
   Discovery/RepoScanner.swift
+  CompareState.swift       estado de la vista de comparación
   Git/GitRunner.swift      ejecución de subprocesos
   Git/GitStatusParser.swift
   Git/GitService.swift     operaciones git de alto nivel
-  Models/                  Repo, RepoStatus, FileChange
-  Views/                   ContentView, SidebarView, RepoDetailView, ChangeRow
+  Git/GitCompare.swift     ramas, commits y diffs entre referencias
+  Git/DiffParser.swift     diff unificado → líneas numeradas
+  Models/                  Repo, RepoStatus, FileChange, DiffModels
+  Views/                   ContentView, SidebarView, RepoDetailView,
+                           ChangeRow, CompareView, DiffFileView
 Resources/
   AppIcon.svg              icono, fuente vectorial
   make-icon.sh             SVG → AppIcon.icns
