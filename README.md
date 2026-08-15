@@ -78,6 +78,9 @@ La primera vez macOS pedirá permiso para acceder a `~/Documents`.
 - Vista lado a lado o unificada. El ancho se calcula en caracteres, así que
   las columnas quedan alineadas y las líneas largas se ven con scroll
   horizontal en vez de partirse.
+- En la vista lado a lado el separador central se arrastra para repartir el
+  ancho entre la versión anterior y la nueva, y cada columna tiene su propio
+  scroll horizontal. Clic derecho sobre el separador para igualarlas.
 - Los signos `+` y `−` se escriben en cada línea: el color no es la única
   señal. Cada fila tiene su etiqueta para VoiceOver.
 - Los archivos con más de 500 líneas de diff se recortan (con botón para ver

@@ -16,6 +16,8 @@ final class CompareState {
     var includeWorkingTree = false
     var files: [DiffFileSummary] = []
     var layout: DiffLayout = .split
+    /// Proporción de ancho de la columna izquierda en la vista lado a lado.
+    var splitRatio: Double = 0.5
 
     var isLoading = false
     var hasLoaded = false

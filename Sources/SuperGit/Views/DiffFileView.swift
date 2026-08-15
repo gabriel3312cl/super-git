@@ -15,7 +15,10 @@ enum DiffStyle {
     static let markerWidth: CGFloat = 12
     static let sidePadding: CGFloat = 18
 
-    static let rowHeight: CGFloat = nsFont.boundingRectForFont.height + 2
+    /// Todas las filas miden lo mismo: es lo que mantiene alineadas las dos
+    /// columnas de la vista lado a lado, que se dibujan por separado.
+    static let rowHeight: CGFloat = ceil(nsFont.boundingRectForFont.height) + 4
+    static let handleWidth: CGFloat = 11
 
     /// Ancho de una columna capaz de mostrar `characters` caracteres.
     static func columnWidth(characters: Int) -> CGFloat {
@@ -117,64 +120,114 @@ private struct UnifiedRow: View {
     }
 }
 
-/// Fila de la vista lado a lado.
-private struct SplitRow: View {
-    let row: DiffRow
-    let columnWidth: CGFloat
+/// Una de las dos columnas de la vista lado a lado. Cada una tiene su propio
+/// scroll horizontal, así que se puede leer una línea larga de un lado sin
+/// mover el otro.
+private struct SplitColumn: View {
+    enum Side { case old, new }
+
+    let rows: [DiffRow]
+    let side: Side
+    let width: CGFloat
+    let contentWidth: CGFloat
 
     var body: some View {
+        ScrollView(.horizontal) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(rows) { row in
+                    halfRow(row)
+                }
+            }
+            .frame(width: contentWidth, alignment: .leading)
+        }
+        .frame(width: width)
+    }
+
+    @ViewBuilder
+    private func halfRow(_ row: DiffRow) -> some View {
         if let header = row.header {
-            Text(header.text)
+            // El encabezado del bloque se escribe en la columna izquierda; la
+            // derecha lleva solo la banda de color para no repetir el texto.
+            Text(side == .old ? header.text : "")
                 .font(DiffStyle.font)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .padding(.horizontal, 10)
-                .padding(.vertical, 3)
-                .frame(width: columnWidth * 2 + 1, alignment: .leading)
+                .frame(width: contentWidth, height: DiffStyle.rowHeight, alignment: .leading)
                 .background(DiffStyle.background(for: header.kind))
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(header.accessibilityDescription)
-        } else {
+                .accessibilityLabel(side == .old ? header.accessibilityDescription : "")
+                .accessibilityHidden(side == .new)
+        } else if let line = (side == .old ? row.left : row.right) {
             HStack(spacing: 0) {
-                side(row.left, number: \.oldNumber)
-                Divider()
-                side(row.right, number: \.newNumber)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(pairDescription)
-        }
-    }
-
-    @ViewBuilder
-    private func side(_ line: DiffLine?, number: KeyPath<DiffLine, Int?>) -> some View {
-        if let line {
-            HStack(spacing: 0) {
-                Gutter(value: line[keyPath: number])
+                Gutter(value: side == .old ? line.oldNumber : line.newNumber)
                 LineText(line: line)
             }
-            .padding(.vertical, 1)
-            .frame(width: columnWidth, alignment: .leading)
+            .frame(width: contentWidth, height: DiffStyle.rowHeight, alignment: .leading)
             .background(DiffStyle.background(for: line.kind))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(line.accessibilityDescription)
         } else {
             Color.clear
-                .frame(width: columnWidth, height: DiffStyle.rowHeight)
+                .frame(width: contentWidth, height: DiffStyle.rowHeight)
                 .background(DiffStyle.emptySide)
+                .accessibilityHidden(true)
         }
     }
+}
 
-    private var pairDescription: String {
-        switch (row.left, row.right) {
-        case let (left?, right?) where left.id == right.id:
-            return left.accessibilityDescription
-        case let (left?, right?):
-            return "\(left.accessibilityDescription). Reemplazada por: \(right.accessibilityDescription)"
-        case let (left?, nil):
-            return left.accessibilityDescription
-        case let (nil, right?):
-            return right.accessibilityDescription
-        case (nil, nil):
-            return "Línea vacía"
-        }
+/// Separador arrastrable entre las dos columnas.
+private struct SplitHandle: View {
+    @Binding var ratio: Double
+    let totalWidth: CGFloat
+
+    @State private var ratioAtDragStart: Double?
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.secondary.opacity(0.3))
+            .frame(width: 1)
+            .frame(width: DiffStyle.handleWidth)
+            .contentShape(Rectangle())
+            .onHover { inside in
+                if inside { NSCursor.resizeLeftRight.set() } else { NSCursor.arrow.set() }
+            }
+            .gesture(
+                // En coordenadas globales: el separador se mueve mientras se
+                // arrastra, y midiendo en su espacio local el desplazamiento se
+                // restaría a sí mismo, avanzando la mitad de lo que pide el mouse.
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { value in
+                        let start = ratioAtDragStart ?? ratio
+                        if ratioAtDragStart == nil { ratioAtDragStart = start }
+                        guard totalWidth > 0 else { return }
+                        ratio = clamp(start + value.translation.width / totalWidth)
+                    }
+                    .onEnded { _ in ratioAtDragStart = nil }
+            )
+            // Simultáneo, no encadenado: si no, el gesto de arrastre se queda
+            // con el doble clic y el reset nunca llega a dispararse.
+            .simultaneousGesture(TapGesture(count: 2).onEnded { ratio = 0.5 })
+            .contextMenu {
+                Button("Igualar columnas") { ratio = 0.5 }
+                Button("Ampliar la versión anterior") { ratio = 0.7 }
+                Button("Ampliar la versión nueva") { ratio = 0.3 }
+            }
+            .help("Arrastra para repartir el ancho · clic derecho para igualar las columnas")
+            .accessibilityElement()
+            .accessibilityLabel("Ancho de las columnas del diff")
+            .accessibilityValue("\(Int((ratio * 100).rounded())) por ciento para la versión anterior")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: ratio = clamp(ratio + 0.05)
+                case .decrement: ratio = clamp(ratio - 0.05)
+                @unknown default: break
+                }
+            }
+    }
+
+    private func clamp(_ value: Double) -> Double {
+        min(0.85, max(0.15, value))
     }
 }
 
@@ -205,12 +258,39 @@ struct DiffFileView: View {
         visibleLines.map(\.text.count).max() ?? 0
     }
 
-    private var columnWidth: CGFloat {
-        max(DiffStyle.columnWidth(characters: longestLine), (availableWidth - 1) / 2)
-    }
-
     private var contentWidth: CGFloat {
         max(DiffStyle.unifiedWidth(characters: longestLine), availableWidth)
+    }
+
+    /// Ancho que se le da a cada columna, según dónde esté el separador.
+    private var columnWidths: (left: CGFloat, right: CGFloat) {
+        let usable = max(availableWidth - DiffStyle.handleWidth, 120)
+        let left = (usable * state.splitRatio).rounded()
+        return (left, usable - left)
+    }
+
+    private var splitContent: some View {
+        let rows = DiffParser.splitRows(from: visibleLines)
+        let widths = columnWidths
+        let needed = DiffStyle.columnWidth(characters: longestLine)
+
+        return HStack(spacing: 0) {
+            SplitColumn(
+                rows: rows, side: .old, width: widths.left,
+                contentWidth: max(needed, widths.left)
+            )
+            SplitHandle(
+                ratio: Binding(
+                    get: { state.splitRatio },
+                    set: { state.splitRatio = $0 }
+                ),
+                totalWidth: max(availableWidth - DiffStyle.handleWidth, 1)
+            )
+            SplitColumn(
+                rows: rows, side: .new, width: widths.right,
+                contentWidth: max(needed, widths.right)
+            )
+        }
     }
 
     var body: some View {
@@ -301,19 +381,17 @@ struct DiffFileView: View {
         } else if lines.isEmpty {
             note("Sin cambios de texto en este archivo.")
         } else {
-            ScrollView(.horizontal) {
-                VStack(alignment: .leading, spacing: 0) {
-                    switch layout {
-                    case .unified:
+            switch layout {
+            case .unified:
+                ScrollView(.horizontal) {
+                    VStack(alignment: .leading, spacing: 0) {
                         ForEach(visibleLines) {
                             UnifiedRow(line: $0, width: contentWidth)
                         }
-                    case .split:
-                        ForEach(DiffParser.splitRows(from: visibleLines)) {
-                            SplitRow(row: $0, columnWidth: columnWidth)
-                        }
                     }
                 }
+            case .split:
+                splitContent
             }
 
             if lines.count > lineLimit && !showsEverything {
